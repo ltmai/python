@@ -24,6 +24,20 @@ class DuplicateFinder:
     chunk_size = 256
     count = 0
 
+    def openOutput(self, filename):
+        if (Path(filename).is_file()):
+            self.outfile = open(filename, "a");
+        else:
+            self.outfile = open(filename, "w");
+            self.outfile.write("Path;MD5\n")
+            
+
+    def closeOutput(self):
+        self.outfile.close()
+
+    def write_to_file(self, f):
+        self.outfile.write(f"{f[0]};{f[1]}\n")
+
 
     def dir_blacklisted(self, d):
         for e in self.dir_blacklist:
@@ -77,7 +91,8 @@ class DuplicateFinder:
                 elif self.is_regular_file(a):
                     self.count+=1
                     if self.file_of_interest(a):
-                        self.files.append((a, self.md5(str(a))))
+                        self.write_to_file((a, self.md5(str(a))))
+                        #self.files.append((a, self.md5(str(a))))
             except Exception as ex:
                 print("Failed to process {0} with error {1}".format(a.name, ex))
 
@@ -90,7 +105,7 @@ class DuplicateFinder:
             else:
                 break
                 
-        self.files.sort(key=lambda f: f[1])
+        #self.files.sort(key=lambda f: f[1])
         self.tsend = time.time()
 
 
@@ -166,8 +181,10 @@ if __name__ == '__main__':
         finder.setDirBlacklist([ ".git" ])
         finder.setFileBlacklist([ ".gif", ".png", ".jpg", ".jpeg", ".ico", ".xml", ".htm", ".html", ".md" ])
         finder.setFileWhitelist([])
+        finder.openOutput("result.csv")
         finder.start()
         finder.printResult()
+        finder.closeOutput()
         
         print("{0} files processed".format(finder.getNumberOfFilesProcessed())) 
         print("Completed in {0} ms".format(finder.getTimeElapsed())) 
