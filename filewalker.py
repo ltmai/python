@@ -4,7 +4,8 @@
 # that are either whitelisted or not blacklisted. To run the script:
 #   python filewalker.py /home/user/folder
 #
-from pathlib import Path
+from pathlib import Path, PurePath
+from datetime import datetime, timezone
 import hashlib
 import sqlite3
 import sys
@@ -15,8 +16,8 @@ class DuplicateFinder:
     files = []
     stack = []
 
-    dir_blacklist  = [ ".git" ]
-    file_blacklist = [ ".gif", ".png", ".jpg", ".jpeg", ".ico", ".xml", ".htm", ".html", ".md" ]
+    dir_blacklist  = [ ".git", "target" ]
+    file_blacklist = [ ".gif", ".png", ".jpg", ".jpeg", ".ico", ".xml", ".htm", ".html", ".md", ".gitignore" ]
     file_whitelist = [ ]
     
     empty_files = []
@@ -37,7 +38,6 @@ class DuplicateFinder:
 
     def write_to_file(self, f):
         self.outfile.write(f"{f[0]};{f[1]}\n")
-
 
     def dir_blacklisted(self, d):
         for e in self.dir_blacklist:
@@ -93,6 +93,10 @@ class DuplicateFinder:
                     if self.file_of_interest(a):
                         self.write_to_file((a, self.md5(str(a))))
                         #self.files.append((a, self.md5(str(a))))
+                        pp = PurePath(a);
+                        st = p.stat()
+                        modified = datetime.fromtimestamp(st.st_mtime, tz=timezone.utc)
+                        print("File: {} Ext: {} Size: {} MTime: {}".format(pp.name, pp.suffix, st.st_size, modified))
             except Exception as ex:
                 print("Failed to process {0} with error {1}".format(a.name, ex))
 
