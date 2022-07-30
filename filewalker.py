@@ -13,31 +13,32 @@ import time
 
 class DuplicateFinder:
 
+    UTF_8_BOM = "\xEF\xBB\xBF"
+
     files = []
     stack = []
 
     dir_blacklist  = [ ".git", "target" ]
     file_blacklist = [ ".gif", ".png", ".jpg", ".jpeg", ".ico", ".xml", ".htm", ".html", ".md", ".gitignore" ]
-    file_whitelist = [ ]
-    
-    empty_files = []
+    file_whitelist = []
+
+    empty_files    = []
 
     chunk_size = 256
     count = 0
 
     def openOutput(self, filename):
         if (Path(filename).is_file()):
-            self.outfile = open(filename, "a");
+            self.outfile = open(filename, "a", encoding="utf-8");
         else:
-            self.outfile = open(filename, "w");
-            self.outfile.write("Path;MD5\n")
-            
+            self.outfile = open(filename, "w", encoding="utf-8");
+            self.outfile.write("Path;Absolute Path;MD5;Filename;Extension;Modified;Size\n")
 
     def closeOutput(self):
         self.outfile.close()
 
     def write_to_file(self, f):
-        self.outfile.write(f"{f[0]};{f[1]}\n")
+        self.outfile.write(f"{f[0]};{f[1]};{f[2]};{f[3]};{f[4]};{f[5]};{f[6]}\n")
 
     def dir_blacklisted(self, d):
         for e in self.dir_blacklist:
@@ -82,23 +83,36 @@ class DuplicateFinder:
 
 
     def list_files_in_dir(self, path):
-        for p in path.iterdir():
-            a = p.absolute()
-            try:
-                if a.is_dir():
-                    if not self.dir_blacklisted(a):
-                        self.stack.append(a)
-                elif self.is_regular_file(a):
-                    self.count+=1
-                    if self.file_of_interest(a):
-                        self.write_to_file((a, self.md5(str(a))))
-                        #self.files.append((a, self.md5(str(a))))
-                        pp = PurePath(a);
-                        st = p.stat()
-                        modified = datetime.fromtimestamp(st.st_mtime, tz=timezone.utc)
-                        print("File: {} Ext: {} Size: {} MTime: {}".format(pp.name, pp.suffix, st.st_size, modified))
-            except Exception as ex:
-                print("Failed to process {0} with error {1}".format(a.name, ex))
+        try:
+            for p in path.iterdir():
+                absName = p.resolve()
+                try:
+                    if absName.is_dir():
+                        if not self.dir_blacklisted(absName):
+                            self.stack.append(absName)
+                    elif self.is_regular_file(absName):
+                        self.count+=1
+                        if self.file_of_interest(absName):
+                            pp = PurePath(absName);
+                            st = p.stat()
+                            modified = datetime.fromtimestamp(st.st_mtime, tz=timezone.utc)
+                            #print("File: {} Ext: {} Size: {} MTime: {}".format(pp.name, pp.suffix, st.st_size, modified))                        
+                            self.write_to_file((
+                                path,                       # path                        
+                                absName,                    # absolute path
+                                "", #self.md5(str(absName)),     # md5
+                                pp.name,                    # name
+                                pp.suffix,                  # extension
+                                modified,                   # modified time
+                                st.st_size                  # size
+                                ))
+                            #self.files.append((absName, self.md5(str(absName))))
+
+                except Exception as ex:
+                    print("         Failed to process file {0} with error {1}".format(absName.name, ex))
+        except Exception as ex:
+            print("*** Failed to process folder {0} with error {1}".format(path.name, ex))
+
 
     def start(self):
         self.tsbegin = time.time()
@@ -193,4 +207,4 @@ if __name__ == '__main__':
         print("{0} files processed".format(finder.getNumberOfFilesProcessed())) 
         print("Completed in {0} ms".format(finder.getTimeElapsed())) 
         
-        print(finder.getEmptyFiles())
+        print("Empty files: " + str(finder.getEmptyFiles()))
